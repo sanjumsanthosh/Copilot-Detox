@@ -1,0 +1,394 @@
+#!/usr/bin/env bash
+
+# Copilot Detox - Practice Python without AI, get AI feedback
+# Storage location
+DETOX_DIR="$HOME/.copilot-detox"
+SESSIONS_DIR="$DETOX_DIR/sessions"
+LAST_SESSION_FILE="$DETOX_DIR/last_session"
+
+# Ensure directories exist
+mkdir -p "$SESSIONS_DIR"
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Get best editor
+get_editor() {
+    if [ -n "$EDITOR" ]; then
+        echo "$EDITOR"
+    elif command -v nvim &> /dev/null; then
+        echo "nvim"
+    elif command -v vim &> /dev/null; then
+        echo "vim"
+    else
+        echo "nano"
+    fi
+}
+
+# Check if gh CLI is installed
+check_gh_cli() {
+    if ! command -v gh &> /dev/null; then
+        echo -e "${RED}❌ GitHub CLI not found${NC}"
+        echo "Install it: https://cli.github.com/"
+        exit 1
+    fi
+}
+
+# Start new session
+cmd_start() {
+    echo -e "${BLUE}🚀 Starting new Detox session...${NC}\n"
+    check_gh_cli
+    
+    # Generate session ID
+    SESSION_ID=$(date +%Y-%m-%dT%H-%M-%S)
+    SESSION_DIR="$SESSIONS_DIR/$SESSION_ID"
+    mkdir -p "$SESSION_DIR"
+    
+    echo -e "${YELLOW}🤖 Asking Copilot to generate a Python coding question...${NC}\n"
+    
+    # Ask Copilot CLI to generate a question
+    QUESTION_PROMPT="Generate a random Python coding challenge for practicing fundamentals. Format:
+
+TITLE: [Short title]
+DESCRIPTION: [2-3 sentence description]
+REQUIREMENTS:
+- [Requirement 1]
+- [Requirement 2]
+- [Requirement 3]
+STARTER_CODE:
+[Python starter code with function signature and test cases]
+
+Make it medium difficulty, focusing on: strings, lists, algorithms, or data validation. Be creative but practical."
+    
+    QUESTION=$(echo "$QUESTION_PROMPT" | gh copilot suggest -t shell 2>&1)
+    
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Failed to generate question. Make sure you're authenticated:${NC}"
+        echo "   gh auth login"
+        echo "   gh copilot"
+        exit 1
+    fi
+    
+    # Save question
+    echo "$QUESTION" > "$SESSION_DIR/question.md"
+    
+    # Extract title (first line after "TITLE:")
+    TITLE=$(echo "$QUESTION" | grep -i "^TITLE:" | head -1 | sed 's/^TITLE://i' | xargs)
+    if [ -z "$TITLE" ]; then
+        TITLE="Python Challenge"
+    fi
+    
+    # Extract starter code (everything after "STARTER_CODE:")
+    STARTER_CODE=$(echo "$QUESTION" | sed -n '/STARTER_CODE:/,$p' | tail -n +2)
+    
+    # If no starter code, use minimal template
+    if [ -z "$STARTER_CODE" ]; then
+        STARTER_CODE="# Write your solution here
+
+def solution():
+    pass
+
+# Test your code
+if __name__ == '__main__':
+    print(solution())
+"
+    fi
+    
+    # Save starter code to solution file
+    echo "$STARTER_CODE" > "$SESSION_DIR/solution.py"
+    
+    # Save metadata
+    cat > "$SESSION_DIR/meta.json" << EOF
+{
+  "id": "$SESSION_ID",
+  "title": "$TITLE",
+  "started_at": "$(date -Iseconds)",
+  "attempts": 0,
+  "status": "in_progress"
+}
+EOF
+    
+    # Update last session
+    echo "$SESSION_ID" > "$LAST_SESSION_FILE"
+    
+    # Display question
+    echo -e "${GREEN}📝 Question Generated:${NC}"
+    echo "$QUESTION" | head -20
+    echo ""
+    echo -e "${BLUE}💾 Session: $SESSION_ID${NC}"
+    echo -e "${BLUE}📂 Location: $SESSION_DIR${NC}\n"
+    
+    # Open editor
+    EDITOR_CMD=$(get_editor)
+    echo -e "${YELLOW}🔥 Opening $EDITOR_CMD with Python syntax highlighting...${NC}"
+    echo -e "${YELLOW}   Save and exit when done (:wq for vim, Ctrl+X for nano)${NC}\n"
+    
+    sleep 1
+    $EDITOR_CMD "$SESSION_DIR/solution.py"
+    
+    echo -e "\n${GREEN}✅ Editor closed.${NC}"
+    echo -e "${BLUE}   Run 'detox submit' when ready for review!${NC}"
+}
+
+# Submit solution for review
+cmd_submit() {
+    check_gh_cli
+    
+    if [ ! -f "$LAST_SESSION_FILE" ]; then
+        echo -e "${RED}❌ No active session. Run 'detox start' first.${NC}"
+        exit 1
+    fi
+    
+    SESSION_ID=$(cat "$LAST_SESSION_FILE")
+    SESSION_DIR="$SESSIONS_DIR/$SESSION_ID"
+    SOLUTION_FILE="$SESSION_DIR/solution.py"
+    QUESTION_FILE="$SESSION_DIR/question.md"
+    META_FILE="$SESSION_DIR/meta.json"
+    
+    if [ ! -f "$SOLUTION_FILE" ] || [ ! -s "$SOLUTION_FILE" ]; then
+        echo -e "${RED}❌ No solution found. Did you save your code?${NC}"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}📤 Submitting solution to Copilot for review...${NC}\n"
+    
+    # Read files
+    QUESTION_TEXT=$(cat "$QUESTION_FILE")
+    SOLUTION_CODE=$(cat "$SOLUTION_FILE")
+    
+    # Build review prompt
+    REVIEW_PROMPT="You are a strict but helpful Python code reviewer. Review this solution.
+
+TASK:
+$QUESTION_TEXT
+
+STUDENT SOLUTION:
+\`\`\`python
+$SOLUTION_CODE
+\`\`\`
+
+Provide:
+1. SCORE: [number 1-10] on the FIRST LINE
+2. Correctness: Does it solve the problem?
+3. Edge cases: What's handled/missed?
+4. Code quality: Pythonic style, readability
+5. One concrete improvement
+
+Be concise but specific. Max 200 words."
+    
+    # Call Copilot CLI for review
+    echo -e "${YELLOW}🤖 Copilot is reviewing your code...${NC}\n"
+    REVIEW=$(echo "$REVIEW_PROMPT" | gh copilot suggest -t shell 2>&1)
+    
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Copilot review failed. Check authentication.${NC}"
+        exit 1
+    fi
+    
+    # Extract score (look for first number 1-10 on a line)
+    SCORE=$(echo "$REVIEW" | grep -oE "^(SCORE:|Score:)?\s*[0-9]+" | head -1 | grep -oE "[0-9]+" | head -1)
+    if [ -z "$SCORE" ] || [ "$SCORE" -gt 10 ]; then
+        SCORE="?"
+    fi
+    
+    # Get current attempt count
+    ATTEMPTS=$(grep -oP '"attempts":\s*\K[0-9]+' "$META_FILE")
+    NEW_ATTEMPTS=$((ATTEMPTS + 1))
+    
+    # Save attempt and review
+    cp "$SOLUTION_FILE" "$SESSION_DIR/attempt_${NEW_ATTEMPTS}.py"
+    echo "$REVIEW" > "$SESSION_DIR/attempt_${NEW_ATTEMPTS}_review.md"
+    
+    # Update metadata
+    sed -i "s/\"attempts\": $ATTEMPTS/\"attempts\": $NEW_ATTEMPTS/" "$META_FILE"
+    sed -i "s/\"status\": \"in_progress\"/\"status\": \"completed\"/" "$META_FILE"
+    
+    # Add score to metadata
+    if grep -q "last_score" "$META_FILE"; then
+        sed -i "s/\"last_score\": [0-9]*/\"last_score\": $SCORE/" "$META_FILE"
+    else
+        sed -i "s/}$/,\n  \"last_score\": $SCORE\n}/" "$META_FILE"
+    fi
+    
+    # Display results
+    echo -e "${GREEN}🎯 Score: $SCORE/10${NC}\n"
+    echo -e "${BLUE}📋 Review Summary:${NC}"
+    echo "$REVIEW" | head -15
+    echo ""
+    echo -e "${YELLOW}💾 Full review saved to:${NC}"
+    echo "   $SESSION_DIR/attempt_${NEW_ATTEMPTS}_review.md"
+    echo ""
+    echo -e "${BLUE}✨ Run 'detox last --review' to see full feedback${NC}"
+}
+
+# Show last session
+cmd_last() {
+    if [ ! -f "$LAST_SESSION_FILE" ]; then
+        echo -e "${RED}❌ No sessions found. Run 'detox start' first.${NC}"
+        exit 1
+    fi
+    
+    SESSION_ID=$(cat "$LAST_SESSION_FILE")
+    SESSION_DIR="$SESSIONS_DIR/$SESSION_ID"
+    META_FILE="$SESSION_DIR/meta.json"
+    
+    TITLE=$(grep -oP '"title":\s*"\K[^"]+' "$META_FILE")
+    ATTEMPTS=$(grep -oP '"attempts":\s*\K[0-9]+' "$META_FILE")
+    SCORE=$(grep -oP '"last_score":\s*\K[0-9]+' "$META_FILE" 2>/dev/null || echo "N/A")
+    
+    echo -e "${BLUE}📁 Last Session: $SESSION_ID${NC}"
+    echo -e "${GREEN}📝 Question: $TITLE${NC}"
+    echo -e "${YELLOW}🔢 Attempts: $ATTEMPTS${NC}"
+    echo -e "${GREEN}🎯 Last Score: $SCORE/10${NC}"
+    echo ""
+    echo -e "${BLUE}📂 Files:${NC}"
+    echo "   $SESSION_DIR/"
+    
+    # Handle flags
+    if [ "$1" = "--open" ]; then
+        LATEST_ATTEMPT=$(ls -t "$SESSION_DIR"/attempt_*.py 2>/dev/null | head -1)
+        if [ -z "$LATEST_ATTEMPT" ]; then
+            LATEST_ATTEMPT="$SESSION_DIR/solution.py"
+        fi
+        $(get_editor) "$LATEST_ATTEMPT"
+    elif [ "$1" = "--review" ]; then
+        LATEST_REVIEW=$(ls -t "$SESSION_DIR"/attempt_*_review.md 2>/dev/null | head -1)
+        if [ -n "$LATEST_REVIEW" ]; then
+            less "$LATEST_REVIEW"
+        else
+            echo -e "${RED}❌ No review found. Run 'detox submit' first.${NC}"
+        fi
+    fi
+}
+
+# Clean old sessions
+cmd_clean() {
+    DAYS=${1:-7}
+    CUTOFF=$(date -d "$DAYS days ago" +%s 2>/dev/null || date -v-${DAYS}d +%s)
+    
+    OLD_SESSIONS=()
+    for SESSION_DIR in "$SESSIONS_DIR"/*; do
+        if [ ! -d "$SESSION_DIR" ]; then
+            continue
+        fi
+        
+        SESSION_NAME=$(basename "$SESSION_DIR")
+        SESSION_DATE=$(echo "$SESSION_NAME" | cut -d'T' -f1)
+        SESSION_TIMESTAMP=$(date -d "$SESSION_DATE" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$SESSION_DATE" +%s 2>/dev/null)
+        
+        if [ -n "$SESSION_TIMESTAMP" ] && [ "$SESSION_TIMESTAMP" -lt "$CUTOFF" ]; then
+            OLD_SESSIONS+=("$SESSION_DIR")
+        fi
+    done
+    
+    if [ ${#OLD_SESSIONS[@]} -eq 0 ]; then
+        echo -e "${GREEN}✨ No sessions older than $DAYS days.${NC}"
+        exit 0
+    fi
+    
+    echo -e "${YELLOW}Found ${#OLD_SESSIONS[@]} sessions older than $DAYS days:${NC}"
+    for SESSION in "${OLD_SESSIONS[@]}"; do
+        echo "  - $(basename "$SESSION")"
+    done
+    
+    if [ "$2" != "--yes" ]; then
+        echo ""
+        read -p "Delete these sessions? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Cancelled."
+            exit 0
+        fi
+    fi
+    
+    for SESSION in "${OLD_SESSIONS[@]}"; do
+        rm -rf "$SESSION"
+    done
+    
+    echo -e "${GREEN}✅ Deleted ${#OLD_SESSIONS[@]} old sessions.${NC}"
+}
+
+# Show statistics
+cmd_stats() {
+    TOTAL=$(find "$SESSIONS_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)
+    
+    if [ "$TOTAL" -eq 0 ]; then
+        echo -e "${YELLOW}📊 No sessions yet. Run 'detox start' to begin!${NC}"
+        exit 0
+    fi
+    
+    SCORES=()
+    for META_FILE in "$SESSIONS_DIR"/*/meta.json; do
+        if [ -f "$META_FILE" ]; then
+            SCORE=$(grep -oP '"last_score":\s*\K[0-9]+' "$META_FILE" 2>/dev/null)
+            if [ -n "$SCORE" ]; then
+                SCORES+=($SCORE)
+            fi
+        fi
+    done
+    
+    COMPLETED=${#SCORES[@]}
+    
+    if [ $COMPLETED -gt 0 ]; then
+        AVG=$(awk 'BEGIN{sum=0} {sum+=$1} END{print sum/NR}' <<< "${SCORES[*]}")
+        AVG=$(printf "%.1f" $AVG)
+    else
+        AVG="N/A"
+    fi
+    
+    echo -e "${BLUE}📊 Statistics:${NC}"
+    echo "   Total sessions: $TOTAL"
+    echo "   Completed: $COMPLETED"
+    echo "   Average score: $AVG/10"
+    echo ""
+    
+    echo -e "${BLUE}🕐 Recent Sessions:${NC}"
+    for SESSION_DIR in $(ls -td "$SESSIONS_DIR"/* | head -5); do
+        SESSION_NAME=$(basename "$SESSION_DIR")
+        META_FILE="$SESSION_DIR/meta.json"
+        
+        if [ -f "$META_FILE" ]; then
+            TITLE=$(grep -oP '"title":\s*"\K[^"]+' "$META_FILE")
+            SCORE=$(grep -oP '"last_score":\s*\K[0-9]+' "$META_FILE" 2>/dev/null || echo "?")
+            printf "   %-12s  %-30s  %s/10\n" "${SESSION_NAME:0:10}" "${TITLE:0:30}" "$SCORE"
+        fi
+    done
+}
+
+# Main command dispatcher
+case "$1" in
+    start)
+        cmd_start
+        ;;
+    submit)
+        cmd_submit
+        ;;
+    last)
+        cmd_last "$2"
+        ;;
+    clean)
+        cmd_clean "${2:-7}" "$3"
+        ;;
+    stats)
+        cmd_stats
+        ;;
+    *)
+        echo "Copilot Detox - Practice Python without AI, get AI feedback"
+        echo ""
+        echo "Usage:"
+        echo "  detox start           Start new coding session"
+        echo "  detox submit          Submit solution for Copilot review"
+        echo "  detox last            Show last session details"
+        echo "  detox last --open     Re-open last solution in editor"
+        echo "  detox last --review   Show full review in pager"
+        echo "  detox clean [--days N] [--yes]  Delete old sessions"
+        echo "  detox stats           Show practice statistics"
+        echo ""
+        echo "First time? Run: detox start"
+        exit 1
+        ;;
+esac
