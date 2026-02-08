@@ -19,7 +19,7 @@ In the age of AI assistants, it's easy to lose touch with fundamental coding ski
 
 ```bash
 # Download the script
-curl -o detox https://raw.githubusercontent.com/sanjumsanthosh/Copilot-Detox/main/detox
+curl -o detox https://raw.githubusercontent.com/sanjumsanthosh/Copilot-Detox/refs/heads/main/detox
 chmod +x detox
 sudo mv detox /usr/local/bin/
 
@@ -33,7 +33,7 @@ source ~/.bashrc
 ### From Source
 
 ```bash
-git clone https://github.com/sanjumsanthosh/Copilot-Detox.git
+git clone https://github.com/sanjumsanthosh/Copilot-Detox
 cd Copilot-Detox
 chmod +x detox
 sudo cp detox /usr/local/bin/
