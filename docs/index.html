@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copilot Detox — practice coding without AI</title>
+<meta name="description" content="A single-file Bash CLI that hands you a Python challenge, drops you into your editor with no AI help, then has Copilot review your hand-written solution.">
+<meta name="theme-color" content="#0b0f0e">
+<meta property="og:title" content="Copilot Detox — practice coding without AI">
+<meta property="og:description" content="AI sets the exercise and grades the result. It never touches the keyboard in between.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+<style>
+  :root {
+    --bg: #0b0f0e;
+    color-scheme: dark;
+    --panel: #131a18;
+    --line: #1f2b27;
+    --text: #dbe6e1;
+    --muted: #86948e;
+    --green: #4ade80;
+    --cyan: #5eead4;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 500px at 15% -10%, rgba(74, 222, 128, .09), transparent 60%),
+      radial-gradient(700px 400px at 90% 0%, rgba(94, 234, 212, .07), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--green); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap { width: min(1040px, 92vw); margin: 0 auto; }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.01em; }
+  .brand span { font-size: 1.15rem; }
+  nav { display: flex; gap: 20px; font-size: .85rem; }
+  nav a { color: var(--muted); }
+  nav a:hover { color: var(--text); text-decoration: none; }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 72px 0 40px; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: .75rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--cyan); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 12px; margin-bottom: 22px;
+    background: rgba(94, 234, 212, .04);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+
+  h1 {
+    font-size: clamp(2.1rem, 6vw, 3.9rem);
+    line-height: 1.05;
+    letter-spacing: -.035em;
+    margin: 0 0 18px;
+    font-weight: 700;
+  }
+  h1 .accent {
+    background: linear-gradient(100deg, var(--green), var(--cyan));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lede { font-size: clamp(1rem, 2.2vw, 1.12rem); color: var(--muted); max-width: 62ch; margin: 0 0 28px; }
+  .lede strong { color: var(--text); font-weight: 600; }
+
+  /* ---------- install ---------- */
+  .install {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 12px 12px 16px;
+    max-width: 760px; overflow: hidden;
+  }
+  .install code {
+    font-size: .82rem; color: var(--text); flex: 1; min-width: 0;
+    white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7;
+  }
+  .install code .p { color: var(--green); user-select: none; }
+  .copy {
+    font-family: var(--mono); font-size: .75rem; letter-spacing: .06em; text-transform: uppercase;
+    background: rgba(74, 222, 128, .1); color: var(--green);
+    border: 1px solid rgba(74, 222, 128, .28); border-radius: 6px;
+    padding: 7px 12px; cursor: pointer; transition: background .15s, color .15s;
+    white-space: nowrap;
+  }
+  .copy:hover { background: rgba(74, 222, 128, .18); }
+  .copy.done { background: var(--green); color: #06110b; border-color: var(--green); }
+
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 18px; font-size: .8rem; color: var(--muted); }
+  .facts span::before { content: "▸ "; color: var(--green); }
+
+  /* ---------- terminal ---------- */
+  .terminal {
+    margin: 44px 0 0;
+    background: linear-gradient(180deg, #0e1614, #0a100f);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 30px 70px -40px rgba(0, 0, 0, .9), inset 0 1px 0 rgba(255, 255, 255, .03);
+    overflow: hidden;
+  }
+  .tbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, .015);
+  }
+  .tbar i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+  .tbar i:nth-child(1) { background: #ff5f57; }
+  .tbar i:nth-child(2) { background: #febc2e; }
+  .tbar i:nth-child(3) { background: #28c840; }
+  .tbar .title { margin-left: 8px; font-size: .74rem; color: var(--muted); letter-spacing: .04em; }
+  .tbar .replay {
+    margin-left: auto; background: none; border: 1px solid var(--line); color: var(--muted);
+    font-family: var(--mono); font-size: .7rem; padding: 4px 10px; border-radius: 5px; cursor: pointer;
+  }
+  .tbar .replay:hover { color: var(--text); border-color: var(--muted); }
+
+  .screen {
+    padding: 20px 20px 26px;
+    font-size: clamp(.72rem, 1.6vw, .84rem);
+    line-height: 1.75;
+    min-height: 330px;
+    overflow-x: auto;
+  }
+  .screen .ln { white-space: pre; }
+  .screen .cmd { color: var(--text); }
+  .screen .cmd .p { color: var(--green); }
+  .screen .out { color: var(--muted); }
+  .screen .hi { color: var(--cyan); }
+  .screen .ok { color: var(--green); }
+  .screen .warn { color: var(--amber); }
+  .cursor {
+    display: inline-block; width: 8px; height: 1.05em; background: var(--green);
+    vertical-align: -.16em; animation: blink 1.05s steps(2, start) infinite;
+  }
+  @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+  /* ---------- sections ---------- */
+  section { padding: 64px 0; border-top: 1px solid var(--line); }
+  .eyebrow { font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; color: var(--green); margin: 0 0 10px; }
+  h2 { font-size: clamp(1.35rem, 3.4vw, 1.85rem); letter-spacing: -.02em; margin: 0 0 14px; font-weight: 700; }
+  .sub { color: var(--muted); max-width: 68ch; margin: 0 0 34px; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px 22px;
+  }
+  .card h3 { margin: 0 0 10px; font-size: .95rem; letter-spacing: .02em; }
+  .card p { margin: 0; color: var(--muted); font-size: .88rem; }
+  .card.bad { border-color: rgba(248, 113, 113, .25); }
+  .card.bad h3 { color: var(--red); }
+  .card.good { border-color: rgba(74, 222, 128, .3); }
+  .card.good h3 { color: var(--green); }
+
+  table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  td { font-size: .84rem; letter-spacing: 0; }
+  td code { color: var(--cyan); }
+  tbody tr:hover { background: rgba(255, 255, 255, .02); }
+
+  pre.tree {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; overflow-x: auto; font-size: .8rem; line-height: 1.8; color: var(--muted);
+    margin: 0;
+  }
+  pre.tree b { color: var(--text); font-weight: 500; }
+  pre.tree em { color: var(--green); font-style: normal; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+
+  ul.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  ul.checks li { padding-left: 26px; position: relative; color: var(--muted); font-size: .88rem; }
+  ul.checks li::before { content: "✓"; position: absolute; left: 0; color: var(--green); }
+
+  footer { border-top: 1px solid var(--line); padding: 34px 0 60px; color: var(--muted); font-size: .82rem; }
+  footer .row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
+  .sig { text-align: center; margin-top: 34px; color: var(--text); font-size: .9rem; }
+
+  @media (max-width: 760px) {
+    .split, .grid2 { grid-template-columns: 1fr; }
+    nav a:not(:last-child) { display: none; }
+    .hero { padding: 44px 0 20px; }
+    .screen { min-height: 300px; }
+    .install code { font-size: .76rem; }
+    .install { padding: 10px 10px 10px 13px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .cursor { animation: none; opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand"><span>🧠</span> Copilot&nbsp;Detox</div>
+    <nav>
+      <a href="#demo">demo</a>
+      <a href="#commands">commands</a>
+      <a href="#how">how it works</a>
+      <a href="https://github.com/sanjumsanthosh/Copilot-Detox">github ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" style="border-top:none">
+      <div class="kicker"><i class="dot"></i> raw mode for developers</div>
+      <h1>Practice coding<br><span class="accent">without AI.</span><br>Get graded by AI.</h1>
+      <p class="lede">
+        A single-file Bash CLI that hands you a Python challenge, drops you into your editor with
+        <strong>no autocomplete, no chat, no Copilot</strong> — then has Copilot review your
+        hand-written solution like a strict-but-fair senior engineer.
+      </p>
+
+      <div class="install">
+        <code><span class="p">$</span> <span id="install-cmd">curl -fsSLo detox https://<wbr>raw.githubusercontent.com/<wbr>sanjumsanthosh/<wbr>Copilot-Detox/<wbr>main/<wbr>detox &amp;&amp; chmod +x detox &amp;&amp; sudo mv detox /usr/local/bin/</span></code>
+        <button class="copy" id="copy-btn" type="button">copy</button>
+      </div>
+
+      <div class="facts">
+        <span>one file, zero dependencies</span>
+        <span>scored 1–10 every session</span>
+        <span>Linux &amp; WSL</span>
+        <span>MIT</span>
+      </div>
+
+      <div class="terminal" id="demo">
+        <div class="tbar">
+          <i></i><i></i><i></i>
+          <span class="title">~/practice — detox</span>
+          <button class="replay" id="replay" type="button">replay ↻</button>
+        </div>
+        <div class="screen" id="screen" aria-live="polite" aria-label="Recorded terminal session"></div>
+      </div>
+    </section>
+
+    <section>
+      <p class="eyebrow">the problem</p>
+      <h2>The muscle you stop using</h2>
+      <p class="sub">
+        AI is great at shipping code and quietly terrible for your fundamentals. Reach for completion every
+        time and the part of you that turns a fuzzy problem into a working function atrophies — you find out
+        in an interview, or in an outage, with a blank file and no tab key.
+      </p>
+
+      <div class="split">
+        <div class="card bad">
+          <h3>✕ Every other day</h3>
+          <p>Copilot writes it. You skim it. Nobody checks whether <em>you</em> could have. Progress is throughput, not skill.</p>
+        </div>
+        <div class="card good">
+          <h3>✓ A detox session</h3>
+          <p>AI sets the exercise, you write it alone, AI grades the result — edge cases, style, and one concrete fix. 15 minutes.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="commands">
+      <p class="eyebrow">commands</p>
+      <h2>Five verbs, no config files</h2>
+      <p class="sub">Everything lives under <code>~/.copilot-detox/</code> as plain files — no daemon, no database, no runtime.</p>
+
+      <table>
+        <thead>
+          <tr><th>Command</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>detox start</code></td><td>Generates a fresh challenge and opens it in <code>$EDITOR</code> — raw mode</td></tr>
+          <tr><td><code>detox submit</code></td><td>Sends your saved solution to Copilot for review and a score</td></tr>
+          <tr><td><code>detox last</code></td><td>Summary of the most recent session</td></tr>
+          <tr><td><code>detox last --open</code></td><td>Re-open the last solution in your editor</td></tr>
+          <tr><td><code>detox last --review</code></td><td>Read the full review in <code>less</code></td></tr>
+          <tr><td><code>detox stats</code></td><td>Total sessions, completed count, average score, last five</td></tr>
+          <tr><td><code>detox clean 30 --yes</code></td><td>Delete sessions older than 30 days</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="how">
+      <p class="eyebrow">under the hood</p>
+      <h2>Plain files, start to score</h2>
+      <p class="sub">A question goes in, an attempt snapshot and a review come out. Every submission is kept, so attempt 3 sits next to attempt 1.</p>
+
+      <div class="grid2">
+        <pre class="tree"><em>detox start</em>
+  │
+  ├─ gh copilot suggest  →  <b>question.md</b>
+  ├─ starter code       →  <b>solution.py</b>
+  └─ <b>$EDITOR</b> opens… no AI in sight
+
+<em>detox submit</em>
+  │
+  ├─ solution + question  →  gh copilot suggest
+  └─ <b>attempt_N.py</b> + <b>attempt_N_review.md</b> + score</pre>
+
+        <pre class="tree">~/.copilot-detox/
+├── last_session
+└── sessions/
+    └── 2026-11-15T14-30-00/
+        ├── <b>question.md</b>          challenge
+        ├── <b>solution.py</b>          your working file
+        ├── <b>meta.json</b>            attempts, status, score
+        ├── <b>attempt_1.py</b>         snapshot per submit
+        └── <b>attempt_1_review.md</b>  the full review</pre>
+      </div>
+    </section>
+
+    <section>
+      <p class="eyebrow">requirements</p>
+      <h2>What you need</h2>
+      <div class="split">
+        <ul class="checks">
+          <li>Bash 4.0+ and GNU coreutils (Linux, WSL)</li>
+          <li>GitHub CLI with the <code>gh copilot</code> extension</li>
+          <li>An active Copilot subscription</li>
+          <li>Any editor — <code>nvim</code>, <code>vim</code>, <code>nano</code>, or <code>$EDITOR</code></li>
+        </ul>
+        <div class="card">
+          <h3>Heads up on macOS</h3>
+          <p>
+            macOS ships Bash 3.2 and BSD <code>grep</code>/<code>sed</code>/<code>date</code>, so a handful of
+            commands need portability fixes. Linux and WSL are the tested path; the port is on the roadmap.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="row">
+      <span>MIT · built by <a href="https://github.com/sanjumsanthosh">@sanjumsanthosh</a></span>
+      <span><a href="https://github.com/sanjumsanthosh/Copilot-Detox">source</a> · <a href="https://github.com/sanjumsanthosh/Copilot-Detox/issues">issues</a></span>
+    </div>
+    <p class="sig">The goal isn't to avoid AI. It's to stay the kind of engineer who doesn't need it.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var script = [
+    { type: 'typed', text: 'detox start' },
+    { type: 'out', cls: 'out', text: '' },
+    { type: 'out', cls: 'ok', text: '🚀 Starting new Detox session...' },
+    { type: 'out', cls: 'out', text: '' },
+    { type: 'out', cls: 'warn', text: '🤖 Asking Copilot to generate a Python coding question...' },
+    { type: 'out', cls: 'out', text: '' },
+    { type: 'out', cls: 'hi', text: '📝 Question Generated:' },
+    { type: 'out', cls: 'cmd', text: 'TITLE: Palindrome Validator' },
+    { type: 'out', cls: 'out', text: 'REQUIREMENTS: ignore case, spaces and punctuation' },
+    { type: 'out', cls: 'out', text: '' },
+    { type: 'out', cls: 'warn', text: '🔥 Opening nvim — no completion, no chat, no AI.' },
+    { type: 'out', cls: 'out', text: '   [ you write the solution yourself ]' },
+    { type: 'typed', text: 'detox submit' },
+    { type: 'out', cls: 'out', text: '' },
+    { type: 'out', cls: 'warn', text: '🤖 Copilot is reviewing your code...' },
+    { type: 'out', cls: 'out', text: '' },
+    { type: 'out', cls: 'ok', text: '🎯 Score: 8/10' },
+    { type: 'out', cls: 'out', text: '   Edge case: empty string should be False, not True.' },
+    { type: 'out', cls: 'out', text: '   Fix: add type hints + document the contract.' },
+    { type: 'typed', text: 'detox stats' },
+    { type: 'out', cls: 'out', text: '' },
+    { type: 'out', cls: 'hi', text: '📊 Average score: 7.8/10 · 12 sessions' }
+  ];
+
+  var screen = document.getElementById('screen');
+  var replay = document.getElementById('replay');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var running = false;
+
+  function el(cls, text) {
+    var d = document.createElement('div');
+    d.className = 'ln ' + cls;
+    d.textContent = text === '' ? ' ' : text;
+    return d;
+  }
+
+  function renderStatic() {
+    screen.textContent = '';
+    script.forEach(function (step) {
+      var line = el(step.cls, step.text);
+      if (step.type === 'typed') {
+        line.classList.add('cmd');
+        line.textContent = '';
+        var p = document.createElement('span');
+        p.className = 'p';
+        p.textContent = '~ $ ';
+        line.appendChild(p);
+        line.appendChild(document.createTextNode(step.text));
+        line.className = 'ln cmd';
+      }
+      screen.appendChild(line);
+    });
+  }
+
+  function play() {
+    if (running) return;
+    running = true;
+    screen.textContent = '';
+    var i = 0;
+
+    var cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    var activeLine = null;
+
+    function nextLine() {
+      if (i >= script.length) {
+        running = false;
+        if (activeLine) activeLine.appendChild(cursor);
+        return;
+      }
+      var step = script[i++];
+      var line = el(step.type === 'typed' ? 'cmd' : step.cls, '');
+
+      if (step.type === 'typed') {
+        var p = document.createElement('span');
+        p.className = 'p';
+        p.textContent = '~ $ ';
+        line.appendChild(p);
+        var span = document.createElement('span');
+        line.appendChild(span);
+        screen.appendChild(line);
+        line.appendChild(cursor);
+        activeLine = line;
+
+        var chars = step.text.split('');
+        (function type(j) {
+          if (j >= chars.length) {
+            cursor.remove();
+            setTimeout(nextLine, 420);
+            return;
+          }
+          span.textContent += chars[j];
+          setTimeout(function () { type(j + 1); }, 42 + Math.random() * 55);
+        })(0);
+      } else {
+        line.textContent = step.text === '' ? ' ' : step.text;
+        screen.appendChild(line);
+        if (step.text !== '') {
+          line.appendChild(cursor);
+          activeLine = line;
+        }
+        setTimeout(nextLine, step.text === '' ? 90 : 300);
+      }
+    }
+
+    nextLine();
+  }
+
+  if (reduce) {
+    renderStatic();
+  } else if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { play(); io.disconnect(); }
+      });
+    }, { threshold: 0.25 });
+    io.observe(screen);
+  } else {
+    play();
+  }
+
+  replay.addEventListener('click', function () {
+    if (reduce) return;
+    running = false;
+    play();
+  });
+
+  var btn = document.getElementById('copy-btn');
+  var cmdText = document.getElementById('install-cmd').textContent;
+  btn.addEventListener('click', function () {
+    function done() {
+      btn.textContent = 'copied ✓';
+      btn.classList.add('done');
+      setTimeout(function () {
+        btn.textContent = 'copy';
+        btn.classList.remove('done');
+      }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(cmdText).then(done, done);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = cmdText;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      done();
+    }
+  });
+})();
+</script>
+</body>
+</html>
