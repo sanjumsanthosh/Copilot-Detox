@@ -1,256 +1,234 @@
-# Copilot Detox 🧠
+<div align="center">
 
-Pure bash CLI that helps developers maintain coding skills by:
-1. Using **Copilot CLI to generate** random Python questions
-2. Opening your terminal editor for manual coding
-3. Using **Copilot CLI to review** your solution
+# 🧠 Copilot Detox
 
-## Why Copilot Detox?
+**Practice coding without AI. Get graded by AI afterwards.**
 
-In the age of AI assistants, it's easy to lose touch with fundamental coding skills. Copilot Detox helps you:
-- ✅ Practice coding **without AI assistance**
-- ✅ Get **instant AI feedback** after you're done
-- ✅ Track your progress over time
-- ✅ Stay sharp on algorithms, data structures, and Python fundamentals
+A single-file Bash CLI that hands you a Python challenge, drops you into your editor in
+**Raw Mode** — no autocomplete, no chat, no Copilot — and then has Copilot review your
+hand-written solution like a strict-but-fair senior engineer.
 
-## Installation
+<br>
 
-### Quick Install
+[![Bash](https://img.shields.io/badge/Bash-4.0%2B-4EAA25?logo=gnubash&logoColor=white)](https://www.gnu.org/software/bash/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)](./detox)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4)](./detox)
+[![Copilot
+CLI](https://img.shields.io/badge/powered%20by-GitHub%20Copilot%20CLI-8957e5)](https://cli.github.com/)
 
-```bash
-# Download the script
-curl -o detox https://raw.githubusercontent.com/sanjumsanthosh/Copilot-Detox/refs/heads/main/detox
-chmod +x detox
-sudo mv detox /usr/local/bin/
+</div>
 
-# Or install to user bin
-mkdir -p ~/bin
-mv detox ~/bin/
-echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
+---
 
-### From Source
+## The problem
 
-```bash
-git clone https://github.com/sanjumsanthosh/Copilot-Detox
-cd Copilot-Detox
-chmod +x detox
-sudo cp detox /usr/local/bin/
-```
+AI assistants are great at shipping code and terrible for your fundamentals. Reach for
+completion every time and the muscle that turns a fuzzy problem into a working function
+quietly atrophies — you stop noticing until an interview or an outage hands you a blank file
+and no tab key.
 
-## Prerequisites
+**Detox is the deliberate practice loop:** AI sets the exercise and grades the result, but
+never touches the keyboard in between.
 
-- **Bash 4.0+** (comes with most Linux/macOS systems)
-- **GitHub CLI**: `brew install gh` or see [cli.github.com](https://cli.github.com/)
-- **Copilot access**: 
-  ```bash
-  gh auth login
-  gh copilot
-  ```
-- **Editor**: vim/nvim/nano (auto-detected, or set `$EDITOR`)
+| | Normal day | A Detox session |
+|---|---|---|
+| Who writes the code | Copilot | **You** |
+| Who checks it | Nobody | **Copilot** |
+| Feedback you get | "Accepted ✅" | Score, edge cases, style, one concrete fix |
+| What improves | Throughput | **Skill** |
 
-## Usage
+---
 
-### Start a Practice Session
+## Quick start
 
 ```bash
+# 1. Install (Linux / WSL / macOS)
+curl -fsSLo detox https://raw.githubusercontent.com/sanjumsanthosh/Copilot-Detox/main/detox
+chmod +x detox && sudo mv detox /usr/local/bin/
+
+# 2. Authenticate the Copilot CLI
+gh auth login && gh extension install github/gh-copilot
+
+# 3. Go
 detox start
 ```
 
-This will:
-1. Ask Copilot to generate a random Python coding question
-2. Create a session in `~/.copilot-detox/sessions/`
-3. Open your editor with starter code
-4. Wait for you to solve it manually (no AI assistance!)
-
-### Submit for Review
+Write your solution in the editor that opens. Save, quit, then:
 
 ```bash
-detox submit
+detox submit     # Copilot reviews your code and scores it 1–10
+detox stats      # your running average, last 5 sessions
 ```
 
-After saving your solution:
-1. Copilot reviews your code
-2. Gives you a score (1-10)
-3. Points out edge cases, style issues, and improvements
-4. Saves the review for later reference
+---
 
-### View Your Work
+## Commands
 
-```bash
-detox last              # Show last session summary
-detox last --open       # Re-open solution in editor
-detox last --review     # View full Copilot review
-detox stats             # See overall progress and scores
-```
+| Command | What it does |
+|---|---|
+| `detox start` | Generates a fresh challenge and opens it in `$EDITOR` (Raw Mode) |
+| `detox submit` | Sends your saved solution to Copilot for review + score |
+| `detox last` | Summary of the most recent session |
+| `detox last --open` | Re-open the last solution in your editor |
+| `detox last --review` | Read the full review in `less` |
+| `detox stats` | Total sessions, completed count, average score, last 5 sessions |
+| `detox clean [days] [--yes]` | Delete sessions older than `days` (default `7`) |
+| `detox` | Print the built-in help |
 
-### Cleanup
+> `detox clean 30 --yes` works today; the `--days 30` spelling shown in older docs is
+> not parsed by the current script.
 
-```bash
-detox clean             # Delete sessions older than 7 days (interactive)
-detox clean --days 30   # Delete sessions older than 30 days
-detox clean --yes       # Skip confirmation prompt
-```
+---
 
-## Example Workflow
+## What a session looks like
 
-```bash
+```console
 $ detox start
+🚀 Starting new Detox session...
+
 🤖 Asking Copilot to generate a Python coding question...
 
 📝 Question Generated:
 TITLE: Palindrome Validator
-DESCRIPTION: Write a function that checks if a string is a palindrome,
-ignoring case and special characters...
-
+DESCRIPTION: Write a function that checks whether a string reads the same
+forwards and backwards, ignoring case, spaces and punctuation.
 REQUIREMENTS:
 - Handle empty strings
 - Ignore spaces and punctuation
 - Case-insensitive comparison
 
+💾 Session: 2026-11-15T14-30-00
+📂 Location: ~/.copilot-detox/sessions/2026-11-15T14-30-00
+
 🔥 Opening nvim with Python syntax highlighting...
+   Save and exit when done (:wq for vim, Ctrl+X for nano)
 
-# [You write your solution manually]
+✅ Editor closed.
+   Run 'detox submit' when ready for review!
+```
 
+No Copilot. No completion. Just you and the problem — then:
+
+```console
 $ detox submit
+📤 Submitting solution to Copilot for review...
+
 🤖 Copilot is reviewing your code...
 
 🎯 Score: 8/10
 
 📋 Review Summary:
-✅ Correctness: Correctly implements palindrome check
-⚠️  Edge cases: Missing check for empty string
-💡 Code quality: Good use of list comprehension, pythonic
-🔧 Improvement: Add type hints and docstring
-
-💾 Full review saved to: ~/.copilot-detox/sessions/2026-02-08T14-30-00/attempt_1_review.md
-
-$ detox stats
-📊 Statistics:
-   Total sessions: 15
-   Completed: 12
-   Average score: 7.8/10
-
-🕐 Recent Sessions:
-   2026-02-08  Palindrome Validator           8/10
-   2026-02-07  List Deduplicator              9/10
-   2026-02-06  Binary Search Implementation   7/10
+1. SCORE: 8
+2. Correctness: Correctly handles the palindrome check and strips punctuation.
+3. Edge cases: Empty string returns True, which is arguably wrong — clarify the spec.
+4. Code quality: Clean, pythonic; the two-pointer version avoids the extra allocation.
+5. Improvement: Add type hints and a docstring with the edge-case contract.
 ```
 
-## How It Works
-
-1. **Storage**: All sessions are stored in `~/.copilot-detox/`
-   ```
-   ~/.copilot-detox/
-   ├── last_session
-   └── sessions/
-       └── 2026-02-08T14-30-00/
-           ├── question.md          # Generated question
-           ├── solution.py          # Your current solution
-           ├── meta.json            # Session metadata
-           ├── attempt_1.py         # Submitted attempt
-           └── attempt_1_review.md  # Copilot review
-   ```
-
-2. **Question Generation**: Uses `gh copilot suggest` to generate structured coding challenges
-
-3. **Code Review**: Sends your solution + question to Copilot CLI for detailed feedback
-
-4. **Pure Bash**: No Python dependencies, works anywhere bash runs
-
-## Commands Reference
-
-| Command | Description |
-|---------|-------------|
-| `detox start` | Start new session (Copilot generates question) |
-| `detox submit` | Submit solution for Copilot review |
-| `detox last` | Show last session details |
-| `detox last --open` | Re-open last solution in editor |
-| `detox last --review` | View full review in pager |
-| `detox clean [--days N] [--yes]` | Delete old sessions |
-| `detox stats` | Show practice statistics |
-
-## Configuration
-
-### Custom Editor
-
-Set your preferred editor:
-
-```bash
-export EDITOR=nvim     # Or vim, nano, emacs, etc.
-```
-
-The script auto-detects in this order: `$EDITOR` → `nvim` → `vim` → `nano`
-
-### Storage Location
-
-By default, sessions are stored in `~/.copilot-detox/`. To change this, edit the `DETOX_DIR` variable in the script.
-
-## Tips
-
-- 🎯 **Practice daily**: Even 15 minutes keeps your skills sharp
-- 📊 **Track progress**: Use `detox stats` to see improvement over time
-- 🔄 **Try edge cases**: Copilot will point out what you missed
-- 📖 **Read reviews**: The feedback is often as valuable as the exercise
-- 🧹 **Stay organized**: Run `detox clean` weekly to manage disk space
-
-## Troubleshooting
-
-### "GitHub CLI not found"
-
-Install GitHub CLI:
-```bash
-# macOS
-brew install gh
-
-# Linux (Debian/Ubuntu)
-curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-sudo apt update
-sudo apt install gh
-```
-
-### "Failed to generate question"
-
-Authenticate with GitHub Copilot:
-```bash
-gh auth login
-gh auth status
-gh copilot
-```
-
-Make sure you have an active Copilot subscription.
-
-### Editor not opening
-
-Check your editor is installed:
-```bash
-which nvim vim nano
-```
-
-Or set a custom editor:
-```bash
-export EDITOR=nano
-```
-
-## Contributing
-
-Contributions welcome! Ideas for improvements:
-- [ ] Support for more languages (JavaScript, Go, Rust)
-- [ ] Difficulty levels (easy/medium/hard)
-- [ ] Topic selection (algorithms, data structures, etc.)
-- [ ] Export sessions to Markdown reports
-- [ ] Integration with LeetCode-style templates
-
-## License
-
-MIT License - feel free to use, modify, and distribute!
-
-## Author
-
-Created with ❤️ to help developers stay sharp in the AI era.
+Try again as many times as you like — every attempt is kept as its own snapshot, so you can
+diff attempt 1 against attempt 3 and watch the review get shorter.
 
 ---
 
-**Remember**: The goal isn't to avoid AI entirely—it's to maintain your ability to code without it! 🧠
+## How it works
+
+```
+detox start                       detox submit
+     │                                 │
+     ▼                                 ▼
+gh copilot suggest ──► question.md    solution.py + question.md
+     │                                 │
+     ▼                                 ▼
+starter code ──► $EDITOR         gh copilot suggest (strict reviewer prompt)
+     │                                 │
+     ▼                                 ▼
+solution.py + meta.json          attempt_N.py + attempt_N_review.md + score
+```
+
+Everything is plain files — no daemon, no database, no Python runtime for the tool itself.
+
+```text
+~/.copilot-detox/
+├── last_session                    # pointer to the newest session
+└── sessions/
+    └── 2026-11-15T14-30-00/
+        ├── question.md               # the generated challenge
+        ├── solution.py               # your working file
+        ├── meta.json                 # id, title, attempts, status, last_score
+        ├── attempt_1.py              # snapshot of each submission
+        ├── attempt_1_review.md       # Copilot's full review
+        └── attempt_2.py …
+```
+
+---
+
+## Requirements
+
+| Need | Why |
+|---|---|
+| **Bash 4.0+** and GNU coreutils | `grep -oP`, `sed -i`, `date -Iseconds` are used as-is |
+| **[GitHub CLI](https://cli.github.com/)** with `gh copilot` | Generates challenges and reviews code |
+| **Active Copilot subscription** | `gh copilot` requires it |
+| **An editor** | Auto-detected: `$EDITOR` → `nvim` → `vim` → `nano` |
+
+**Platforms:** Linux and WSL are the tested path. macOS ships Bash 3.2 and BSD `grep`/`sed`,
+so a few commands (`grep -P`, `sed -i ''`, `date -Iseconds`) need portability fixes — see the
+roadmap.
+
+---
+
+## Configuration
+
+```bash
+export EDITOR=nvim          # force an editor
+export DETOX_DIR=~/practice # move session storage (edit the script variable)
+```
+
+Nerd knobs live at the top of `detox`: `DETOX_DIR`, the challenge prompt, and the reviewer
+prompt. Swap "Python" for any language you want to drill — the review prompt is just text.
+
+---
+
+## Roadmap
+
+- [x] Challenge generation via Copilot CLI
+- [x] Raw Mode practice loop with per-attempt snapshots
+- [x] Score tracking and session stats
+- [x] Session cleanup with age thresholds
+- [ ] macOS support (portable `grep`, `sed`, `date`)
+- [ ] `--days` / `--topic` / `--difficulty` flags
+- [ ] More languages: JavaScript, Go, Rust
+- [ ] Weekly Markdown progress report
+- [ ] Optional spaced-repetition queue for missed edge cases
+
+---
+
+## Contributing
+
+Issues and PRs are welcome — small and focused beats large and clever.
+
+```bash
+git clone https://github.com/sanjumsanthosh/Copilot-Detox
+cd Copilot-Detox
+chmod +x detox
+./detox            # sanity-check the help output
+```
+
+If you touch a `grep`/`sed`/`date` line, please keep it working on both GNU and BSD userland.
+
+---
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
+
+## Author
+
+Built by [@sanjumsanthosh](https://github.com/sanjumsanthosh) — to stay sharp while shipping fast.
+
+<div align="center"><br>
+
+**The goal isn't to avoid AI. It's to stay the kind of engineer who doesn't need it.**
+
+</div>
